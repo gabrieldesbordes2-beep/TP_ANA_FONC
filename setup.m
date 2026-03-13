@@ -1,9 +1,9 @@
-s = what('fifemlab');
 disp('fifemlab setup');
-addpath(s.path);
-addpath([s.path '/classes']);
-addpath([s.path '/data']);
-addpath([s.path '/documentation']);
-addpath([s.path '/functions']);
+path = pwd;
+addpath(path);
+addpath([path '/classes']);
+addpath([path '/data']);
+addpath([path '/documentation']);
+addpath([path '/functions']);
 savepath;
 disp('setup done');
