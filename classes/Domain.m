@@ -151,6 +151,8 @@ classdef Domain
 
             if p == 5
                 obj.edges = edges;
+                obj.poly = obj.build_poly;
+                obj.area = area(obj.poly);
                 obj = obj.check_structure;
                 return
             elseif p == 1
@@ -169,6 +171,30 @@ classdef Domain
 
             end
         end
+        function domain = move(obj,moved_mesh)
+            new_nodes = obj.nodes;
+            BE = moved_mesh.boundary_edges;
+            E = obj.edges;
+            Ne = size(E,1);
+            for n = 1 : Ne
+                e = E(n,:);
+                e{3} = 'data';
+                
+                I = BE(BE(:,3) == n,1:2);
+
+                I = [I(:,1); I(end,2)];
+                
+                data = moved_mesh.nodes(I,:);
+                e{4} = data;
+                new_nodes(e{1},:) = data(1,:);
+                new_nodes(e{2},:) = data(end,:);
+
+                E(n,:) = e;
+            end
+            domain = Domain(new_nodes,E);
+        end
+            
+
         function disp(obj)
             % DISP method: display informations contained in the Domain
             % object.
@@ -388,6 +414,46 @@ classdef Domain
             end
 
         end
+        function [x,y] = discretize_edge(obj,edge,h,Ndis)
+            type = edge{3};
+            param = edge{4};
+            
+            switch type
+                case 'straight'
+                    x1 = obj.nodes(edge{1},:);
+                    x2 = obj.nodes(edge{2},:);
+                    l = sqrt((x2(1)-x1(1)).^2 + (x2(2)-x1(2)).^2);
+                    N = max(ceil(l/h)+1,2);
+                    N = min(N,Ndis);
+                    x = linspace(x1(1),x2(1),N)';
+                    y = linspace(x1(2),x2(2),N)';
+                case 'param'
+                    interval = param.interval;
+                    tmin = interval(1);
+                    tmax = interval(2);
+                    if Ndis == inf
+                        Ndis = 256;
+                    end
+                    t = linspace(tmin,tmax,Ndis)';
+                    [teq,L,x,y] = iterative_equalizer(t,param);
+                    if h
+                        l = sum(L);
+                        N =   ceil(l/h)+1;
+                        teq = interp1(t,teq,linspace(tmin,tmax,N)');
+                        [teq,L,x,y] = iterative_equalizer(teq,param);
+                    end
+                case 'data'
+                    x = param(:,1);
+                    y = param(:,2);
+                    L = sqrt(diff(x).^2+diff(y).^2);
+                    if min(L)<h
+                        p = under_sample2(param,h);
+                        x = p(:,1);
+                        y = p(:,2);
+                    end
+            end
+
+        end
     end
 
     methods (Access = private) 
@@ -515,46 +581,6 @@ classdef Domain
                     end
 
             end
-        end
-        function [x,y] = discretize_edge(obj,edge,h,Ndis)
-            type = edge{3};
-            param = edge{4};
-            
-            switch type
-                case 'straight'
-                    x1 = obj.nodes(edge{1},:);
-                    x2 = obj.nodes(edge{2},:);
-                    l = sqrt((x2(1)-x1(1)).^2 + (x2(2)-x1(2)).^2);
-                    N = max(ceil(l/h)+1,2);
-                    N = min(N,Ndis);
-                    x = linspace(x1(1),x2(1),N)';
-                    y = linspace(x1(2),x2(2),N)';
-                case 'param'
-                    interval = param.interval;
-                    tmin = interval(1);
-                    tmax = interval(2);
-                    if Ndis == inf
-                        Ndis = 256;
-                    end
-                    t = linspace(tmin,tmax,Ndis)';
-                    [teq,L,x,y] = iterative_equalizer(t,param);
-                    if h
-                        l = sum(L);
-                        N =   ceil(l/h)+1;
-                        teq = interp1(t,teq,linspace(tmin,tmax,N)');
-                        [teq,L,x,y] = iterative_equalizer(teq,param);
-                    end
-                case 'data'
-                    x = param(:,1);
-                    y = param(:,2);
-                    L = sqrt(diff(x).^2+diff(y).^2);
-                    if min(L)<h
-                        p = under_sample2(param,h);
-                        x = p(:,1);
-                        y = p(:,2);
-                    end
-            end
-
         end
         function P = build_poly(obj)
             warning('off');
