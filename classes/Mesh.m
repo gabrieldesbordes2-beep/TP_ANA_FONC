@@ -154,8 +154,8 @@ classdef Mesh < handle
             obj.boundary_edges = e;
             obj.triangles = t(1:3,:)';
             obj.mesh_prop_builder;
-            if obj.q_mean<0.9
-                warning('poor mesh mean quality (<0.9).')
+            if obj.q_mean<0.7
+                warning('poor mesh mean quality (<0.7).')
             end
             obj.building_time = ceil(100*toc)/100;
             fprintf(['done (' num2str(obj.Ntriangles) ' triangles, ' num2str(round(obj.building_time,1)) ' s)']);
@@ -168,14 +168,21 @@ classdef Mesh < handle
             % object following the vector field v. It returns a new mesh
             % object and a new domain object.
             v = obj.P1(v,'order',1);
-            size(v)
-            moved_mesh = obj;
-            moved_mesh.nodes(:,1) = moved_mesh.nodes(:,1) + v(:,1);
-            moved_mesh.nodes(:,2) = moved_mesh.nodes(:,2) + v(:,2);
+            moved_mesh = Mesh;
+            moved_mesh.nodes = obj.nodes;
+            moved_mesh.nodes(:,1) = obj.nodes(:,1) + v(:,1);
+            moved_mesh.nodes(:,2) = obj.nodes(:,2) + v(:,2);
+            moved_mesh.triangles = obj.triangles;
+            moved_mesh.h_input = obj.h_input;
+            moved_mesh.h_bound_input = obj.h_bound_input;
+            moved_mesh.boundary_edges = obj.boundary_edges;
+            moved_mesh.building_time = obj.building_time;
             mesh_prop_builder(moved_mesh);
             moved_domain = obj.domain.move(moved_mesh);
             moved_mesh.domain = moved_domain;
-            
+            if moved_mesh.q_mean<0.7
+                warning('poor mesh mean quality (<0.7).')
+            end      
         end
         
         % Display and plot
@@ -1015,6 +1022,7 @@ classdef Mesh < handle
             Fb = full(sparse(I,J,fei,Nn,1));
         end
         
+
         % Vectorial PDE matrices
         function K = stiffness_vect(obj,a)
             % stiffness_vect method of class Mesh.
@@ -1185,6 +1193,7 @@ classdef Mesh < handle
             
         end
 
+
         % Main elliptic PDE solver
         function u = solve(obj,a,b,c,f,bc_list)
             Kloc = obj.stiffness(a);
@@ -1242,6 +1251,8 @@ classdef Mesh < handle
             U = A\F;
             u = [U(1:Nn) U(Nn+1:end)];
         end
+       
+        
         % Tools
         function [it,alpha] = find_triangle(obj,p,I)
             % find_triangle method of class Mesh.
@@ -1286,7 +1297,6 @@ classdef Mesh < handle
     end
     
     methods (Access = public) % Needs private
-
         function mesh_prop_builder(obj)
             disp('- basic properties')
             p = obj.nodes;
@@ -1306,7 +1316,19 @@ classdef Mesh < handle
             obj.I_boundary_nodes = union(e(:,1),e(:,2));
             obj.I_interior_nodes = setdiff(1:size(p,1), obj.I_boundary_nodes)';
 
-            q = pdetriq(p',t');
+            e1 = b - a;
+            e2 = c - a;
+            e3 = c - b;
+            surf = abs(e1(:,1).*e2(:,2) - e1(:,2).*e2(:,1))/2;
+            L1 = sqrt(e1(:,1).^2 + e1(:,2).^2);
+            L2 = sqrt(e2(:,1).^2 + e2(:,2).^2);
+            L3 = sqrt(e3(:,1).^2 + e3(:,2).^2);
+            diam = max([L1 L2 L3],[],2);
+
+
+
+
+            q = 4/sqrt(3)*surf./diam.^2;
             obj.q_mean = mean(q);
             obj.q_min = min(q);
 
@@ -1512,18 +1534,21 @@ classdef Mesh < handle
                 ub = u(ib);
                 uc = u(ic);
 
-                p_list = [];
+                p_list = zeros(2,2);
+                n = 1;
                 alpha = (level - ua)/(ub - ua);
-                if alpha >= 0 && alpha <= 1
-                    p_list = [p_list ; a + alpha*(b - a)];
+                if alpha >= 0 && alpha < 1 
+                    p_list(n,:) = a + alpha*(b - a);
+                    n = n + 1;
                 end
                 alpha = (level - ua)/(uc - ua);
-                if alpha >= 0 && alpha <= 1
-                    p_list = [p_list ; a + alpha*(c - a)];
+                if alpha > 0 && alpha <= 1
+                    p_list(n,:) = a + alpha*(c - a);
+                    n = n + 1;
                 end
                 alpha = (level - ub)/(uc - ub);
-                if alpha >= 0 && alpha <= 1
-                    p_list = [p_list ; b + alpha*(c - b)];
+                if alpha >= 0 && alpha < 1 && n<=2
+                    p_list(n,:) =b + alpha*(c - b);
                 end
                 X_list(:,k) = p_list(:,1);
                 Y_list(:,k) = p_list(:,2);

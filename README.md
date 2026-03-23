@@ -5,7 +5,7 @@
 ## Description
 FIFEMLab provides user friendly Matlab tools to generate 2D triangular meshes, solve PDEs with the Finite Element method and solve inverse parameters problems.
 
-It is fully object oriented in order to make the code as clear as possible. It has been designed both for educational purposes and research. It requires the Matlab PDE toolbox and (for some functionality) the image processing toolbox. 
+It is fully object oriented in order to make the code as clear as possible. It has been designed both for educational purposes and research. It requires the Matlab PDE toolbox and (for some functionalities) the image processing toolbox. 
 
 ## Main use
 1. Define complex geometry domains (stable)
